@@ -43,6 +43,11 @@ io.on("connection", (socket) => {
     io.emit("chat-message", message);
   });
 
+  socket.on("setUsername", (username) => {
+    console.log("username", username);
+    io.emit("setUsername", username);
+  });
+
   socket.on("disconnect", () => {
     console.log("A user disconnected");
   });

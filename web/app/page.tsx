@@ -3,31 +3,44 @@ import { useState, useEffect } from "react";
 import io from "socket.io-client";
 const socket = io("http://localhost:3001");
 
+interface MessageI {
+  isGuest: boolean;
+  username: string;
+  message: string;
+}
+
 export default function Chat() {
   const [message, setMessage] = useState<string>("");
-  const [chat, setChat] = useState<string[]>([]);
-  // const [socket, setSocket] = useState<any>(false);
+  const [messages, setMessages] = useState<MessageI[]>([]);
+  const [username, setUsername] = useState<string>("");
+  const [clientID, setClientID] = useState<string>("");
 
   useEffect(() => {
-    if (socket) {
-      socket.on("connect", () => {
-        console.log("connect", socket.id);
-      });
-    }
+    socket.on("connect", () => {
+      console.log("connect", socket.id);
+    });
+
+    setClientID(socket.id);
+
+    socket.on("setUsername", (username) => {
+      setUsername(username);
+    });
+
+    socket.emit("setUsername", socket.id.substring(0, 1));
   }, []);
 
   useEffect(() => {
     if (socket) {
-      socket.on("chat-message", (message: string) => {
-        console.log(message);
+      socket.on("chat-message", (message: any) => {
+        message.isGuest = message.clientID !== socket.id;
 
-        setChat([...chat, message]);
+        setMessages([...messages, message]);
       });
     }
-  }, [chat]);
+  }, [messages]);
 
   const sendMessage = () => {
-    socket.emit("chat-message", message);
+    socket.emit("chat-message", { message, username, clientID });
     setMessage("");
   };
 
@@ -60,32 +73,37 @@ export default function Chat() {
             <div className="flex flex-col h-full overflow-x-auto mb-4">
               <div className="flex flex-col h-full">
                 <div className="grid grid-cols-12 gap-y-2">
-                  {chat.map((message, index) => (
-                    <div
-                      className="col-start-1 col-end-8 p-3 rounded-lg"
-                      key={index}
-                    >
-                      <div className="flex flex-row items-center">
-                        <div className="flex items-center justify-center h-10 w-10 rounded-full bg-indigo-500 flex-shrink-0">
-                          A
+                  {messages.map((message, index) =>
+                    message.isGuest ? (
+                      <div
+                        className="col-start-1 col-end-8 p-3 rounded-lg"
+                        key={index}
+                      >
+                        <div className="flex flex-row items-center">
+                          <div className="flex items-center justify-center h-10 w-10 rounded-full bg-indigo-500 flex-shrink-0">
+                            {message.username}
+                          </div>
+                          <div className="relative ml-3 text-sm bg-white py-2 px-4 shadow rounded-xl">
+                            <div>{message.message}</div>
+                          </div>
                         </div>
-                        <div className="relative ml-3 text-sm bg-white py-2 px-4 shadow rounded-xl">
-                          <div>{message}</div>
+                      </div>
+                    ) : (
+                      <div
+                        className="col-start-6 col-end-13 p-3 rounded-lg"
+                        key={index}
+                      >
+                        <div className="flex items-center justify-start flex-row-reverse">
+                          <div className="flex items-center justify-center h-10 w-10 rounded-full bg-indigo-500 flex-shrink-0">
+                            {message.username}
+                          </div>
+                          <div className="relative mr-3 text-sm bg-indigo-100 py-2 px-4 shadow rounded-xl">
+                            <div>{message.message}</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-
-                  {/* <div className="col-start-6 col-end-13 p-3 rounded-lg">
-                    <div className="flex items-center justify-start flex-row-reverse">
-                      <div className="flex items-center justify-center h-10 w-10 rounded-full bg-indigo-500 flex-shrink-0">
-                        A
-                      </div>
-                      <div className="relative mr-3 text-sm bg-indigo-100 py-2 px-4 shadow rounded-xl">
-                        <div>I am ok what about you?</div>
-                      </div>
-                    </div>
-                  </div> */}
+                    )
+                  )}
                 </div>
               </div>
             </div>
@@ -115,6 +133,11 @@ export default function Chat() {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     className="flex w-full border rounded-xl focus:outline-none focus:border-indigo-300 pl-4 h-10"
+                    onKeyUp={(event) => {
+                      if (event.key === "Enter") {
+                        sendMessage();
+                      }
+                    }}
                   />
                   <button className="absolute flex items-center justify-center h-full w-12 right-0 top-0 text-gray-400 hover:text-gray-600">
                     <svg
